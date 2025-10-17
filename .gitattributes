@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+# ไฟล์ที่ต้องเป็น CRLF จริง ๆ (สคริปต์ Windows)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# ไฟล์ไบนารี
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
