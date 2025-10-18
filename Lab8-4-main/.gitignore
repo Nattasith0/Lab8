@@ -1,0 +1,9 @@
+# ไม่เอาโฟลเดอร์ node_modules
+node_modules/
+
+# lock file (เลือกได้ตามที่ต้องการเก็บหรือไม่เก็บ)
+package-lock.json
+
+# ไฟล์ระบบของ OS/IDE
+.DS_Store
+*.log

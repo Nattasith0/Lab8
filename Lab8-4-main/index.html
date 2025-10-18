@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Wallboard - Real-time Dashboard</title>
+
+    <!-- Minimal modern styles -->
+    <style>
+        :root {
+            --bg1: #b860db;
+            --bg2: #4fd3f5;
+            --card-bg: rgba(255, 255, 255, .08);
+            --card-br: 14px;
+            --fg: #ffffff;
+            --muted: rgba(255, 255, 255, .8);
+            --line: rgba(255, 255, 255, .16);
+            --btn-bg: rgba(255, 255, 255, .18);
+            --btn-bg-h: rgba(255, 255, 255, .28);
+            --ok: #2ecc71;
+            --warn: #f39c12;
+            --err: #e74c3c;
+            --off: #95a5a6;
+            --ink: #2c3e50;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            color: var(--fg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+        }
+
+        .dashboard {
+            display: grid;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            grid-template-columns: 1fr 2fr 1fr;
+            /* 3 คอลัมน์สมดุล */
+        }
+
+        .widget {
+            background: var(--card-bg);
+            border: 1px solid var(--line);
+            border-radius: var(--card-br);
+            padding: 18px;
+            backdrop-filter: blur(10px);
+            transition: transform .18s ease, box-shadow .18s ease;
+        }
+
+        .widget:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+        }
+
+        .widget h3 {
+            margin: 0 0 12px;
+            font-size: 1.06rem;
+            font-weight: 600;
+            text-align: left;
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 8px;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            position: relative;
+            padding: 28px 18px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+
+        .subtitle {
+            margin: 6px 0 14px;
+            opacity: .85;
+        }
+
+        .clock {
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        /* Quick actions (top-right) */
+        .quick-actions {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: var(--btn-bg);
+            border: 1px solid var(--line);
+            cursor: pointer;
+            transition: .18s ease;
+            color: #fff;
+            backdrop-filter: blur(6px);
+        }
+
+        .icon-btn:hover {
+            background: var(--btn-bg-h);
+            transform: translateY(-1px) scale(1.03);
+        }
+
+        .icon-btn svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+
+        /* Buttons */
+        .actions-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .button {
+            background: var(--btn-bg);
+            border: 1px solid var(--line);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: .92rem;
+            cursor: pointer;
+            transition: .18s ease;
+        }
+
+        .button:hover {
+            background: var(--btn-bg-h);
+            transform: translateY(-1px);
+        }
+
+        /* Agents */
+        .agent-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, .1);
+            margin-bottom: 6px;
+            font-size: .95rem;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .status-available {
+            background: var(--ok);
+        }
+
+        .status-busy {
+            background: var(--err);
+        }
+
+        .status-break {
+            background: var(--warn);
+        }
+
+        .status-offline {
+            background: var(--off);
+        }
+
+        /* WS */
+        .websocket-status {
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .ws-connected {
+            background: #2ecc7022;
+            color: var(--ok);
+        }
+
+        .ws-disconnected {
+            background: #e74c3c22;
+            color: var(--err);
+        }
+
+        .ws-connecting {
+            background: #f39c1222;
+            color: var(--warn);
+        }
+
+        /* Util */
+        .loading {
+            opacity: .7;
+            font-style: italic;
+            text-align: center;
+        }
+
+        .small {
+            font-size: .86rem;
+            opacity: .85;
+        }
+
+        .muted {
+            opacity: .75;
+        }
+
+        .full {
+            grid-column: 1 / -1;
+        }
+
+        .span2 {
+            grid-column: span 2;
+        }
+
+        /* Light mode */
+        body.light-mode {
+            --fg: #2c3e50;
+            --muted: #556;
+            --line: rgba(0, 0, 0, .12);
+            --card-bg: rgba(255, 255, 255, .7);
+            background: linear-gradient(135deg, #ecf0f1 0%, #bdc3c7 100%);
+        }
+
+        body.light-mode .icon-btn,
+        body.light-mode .button {
+            color: var(--ink);
+        }
+    </style>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="header widget">
+            <div class="quick-actions">
+                <button id="resetSettingsBtn" class="icon-btn" aria-label="Reset" title="Reset">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="1 4 1 10 7 10"></polyline>
+                        <path d="M3.51 15A9 9 0 1 0 7 4.27L1 10"></path>
+                    </svg>
+                </button>
+                <button id="themeToggle" class="icon-btn" aria-label="Theme" title="Theme">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+            <h1>🏢 Agent Wallboard</h1>
+            <p class="subtitle">Real-time Monitoring System</p>
+            <div class="clock" id="liveClock">กำลังโหลดเวลา...</div>
+        </div>
+
+        <!-- Weather -->
+        <div class="widget">
+            <h3>🌤️ สภาพอากาศ</h3>
+            <div id="weatherInfo" class="loading">กำลังโหลด...</div>
+            <div class="actions-row" style="margin-top:8px">
+                <button class="button" onclick="refreshWeather()">🔄 รีเฟรช</button>
+            </div>
+        </div>
+
+        <!-- Status Bar (span 2 cols) -->
+        <div class="widget span2">
+            <h3>📊 Agent Status (Real-time)</h3>
+            <canvas id="statusBar" height="160"></canvas>
+        </div>
+
+        <!-- Count over time -->
+        <div class="widget">
+            <h3>⏱️ Agent Count Over Time</h3>
+            <canvas id="countLine" height="140"></canvas>
+        </div>
+
+        <!-- WebSocket -->
+        <div class="widget">
+            <h3>⚡ WebSocket</h3>
+            <div id="websocketStatus" class="websocket-status ws-disconnected">🔴 ไม่ได้เชื่อมต่อ</div>
+            <div class="actions-row" style="margin-top:8px">
+                <button class="button" onclick="connectWebSocket()">🔌 Connect</button>
+                <button class="button" onclick="sendTestMessage()">💬 Test</button>
+            </div>
+        </div>
+
+        <!-- Time -->
+        <div class="widget">
+            <h3>🕒 เวลา API</h3>
+            <div id="apiTime" class="loading">กำลังโหลด...</div>
+            <div class="actions-row" style="margin-top:8px">
+                <button class="button" onclick="refreshTime()">🔄 รีเฟรช</button>
+            </div>
+        </div>
+
+        <!-- Agents (full width) -->
+        <div class="widget full">
+            <h3>👥 Agent Status (Mock Data)</h3>
+            <div id="agentsList" class="loading">กำลังโหลดรายชื่อ agents...</div>
+            <div class="actions-row" style="margin-top:8px">
+                <button class="button" onclick="refreshAgents()">🔄 รีเฟรช</button>
+                <button id="btnAutoStart" class="button" onclick="startAutoRefresh()">⏰ Auto</button>
+                <button id="btnAutoStop" class="button" onclick="stopAutoRefresh()">⏹️ Stop</button>
+            </div>
+            <div id="autoStatus" class="small" style="margin-top:6px">Auto: ❌ ปิดอยู่</div>
+        </div>
+    </div>
+
+    <!-- Simulator (full width) -->
+    <div class="widget full" style="max-width:1200px;margin:20px auto 0;">
+        <h3>🎭 Agent Simulator</h3>
+        <p class="muted">จำลองการเปลี่ยนสถานะแบบ real-time</p>
+        <div class="actions-row" style="margin-top:6px">
+            <button class="button" onclick="startSimulator()">▶️ เริ่ม</button>
+            <button class="button" onclick="stopSimulator()">⏹️ หยุด</button>
+        </div>
+        <div id="simulatorStatus" class="small" style="margin-top:10px">📍 Simulator ยังไม่ทำงาน</div>
+        <div id="lastStatusChange" class="small" style="margin-top:6px">รอการเปลี่ยนแปลง...</div>
+    </div>
+
+    <script>
+        /************** THEME **************/
+        function applyTheme(theme) {
+            document.body.classList.remove('light-mode', 'dark-mode');
+            document.body.classList.add((theme || 'dark') + '-mode');
+            localStorage.setItem('theme', theme || 'dark');
+            // เปลี่ยนไอคอนปุ่ม
+            const themeBtn = document.getElementById('themeToggle');
+            if (!themeBtn) return;
+            themeBtn.innerHTML = theme === 'light'
+                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>`
+                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+        }
+        function toggleTheme() {
+            const next = document.body.classList.contains('light-mode') ? 'dark' : 'light';
+            applyTheme(next);
+            saveSettings({ theme: next });
+        }
+
+        /************** SETTINGS **************/
+        let appSettings = { theme: 'dark', autoRefresh: false, autoRefreshMs: 30000, wsAutoConnect: false };
+
+        async function loadSettingsAndApply() {
+            try {
+                const res = await window.realtimeAPI.loadSettings();
+                if (res?.success) {
+                    appSettings = { ...appSettings, ...res.settings };
+                    applyTheme(appSettings.theme || 'dark');
+                    if (appSettings.autoRefresh) startAutoRefresh(); else stopAutoRefresh();
+                    if (appSettings.wsAutoConnect) {
+                        if (!websocket || websocket.readyState !== WebSocket.OPEN) connectWebSocket();
+                    }
+                }
+            } catch (e) { console.warn('⚠️ loadSettings error', e); }
+        }
+        async function saveSettings(partial) {
+            try {
+                appSettings = { ...appSettings, ...(partial || {}) };
+                await window.realtimeAPI.saveSettings(appSettings);
+            } catch (e) { console.warn('⚠️ saveSettings error', e); }
+        }
+
+        /************** CLOCK **************/
+        let clockInterval = null;
+        function updateLiveClock() { document.getElementById('liveClock').textContent = new Date().toLocaleString('th-TH'); }
+
+        /************** WEBSOCKET **************/
+        let websocket = null;
+        function connectWebSocket() {
+            try {
+                updateWebSocketStatus('connecting', '🟡 กำลังเชื่อมต่อ...');
+                websocket = new WebSocket('wss://ws.ifelse.io');
+                websocket.onopen = () => {
+                    updateWebSocketStatus('connected', '🟢 เชื่อมต่อแล้ว');
+                    websocket.send(JSON.stringify({ type: 'wallboard_connected', message: 'Agent Wallboard เชื่อมต่อแล้ว', timestamp: new Date().toISOString() }));
+                };
+                websocket.onmessage = (e) => {
+                    try { const data = JSON.parse(e.data); handleWebSocketMessage(data); } catch { }
+                };
+                websocket.onclose = () => { updateWebSocketStatus('disconnected', '🔴 ไม่ได้เชื่อมต่อ'); websocket = null; };
+                websocket.onerror = err => { console.error(err); updateWebSocketStatus('disconnected', '❌ เกิดข้อผิดพลาด'); };
+            } catch (e) { updateWebSocketStatus('disconnected', '❌ เชื่อมต่อไม่ได้'); }
+        }
+        function sendTestMessage() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({ type: 'agent_status_update', agentId: 'AG001', newStatus: 'Available', timestamp: new Date().toISOString() }));
+            } else alert('❌ กรุณาเชื่อมต่อ WebSocket ก่อน');
+        }
+        function updateWebSocketStatus(status, message) {
+            const el = document.getElementById('websocketStatus');
+            el.className = `websocket-status ws-${status}`;
+            el.textContent = message;
+        }
+        function handleWebSocketMessage(data) {
+            if (data.type === 'agent_status_update') {
+                showNotification(`🔄 ${data.agentId} เปลี่ยนสถานะเป็น ${data.newStatus}`);
+            }
+        }
+
+        /************** API CALLS (IPC) **************/
+        async function refreshTime() {
+            const el = document.getElementById('apiTime');
+            try {
+                el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+                const r = await window.realtimeAPI.getWorldTime();
+                if (r.success) {
+                    const tz = r.timezone || 'Local';
+                    const shown = r.formatted || new Date().toLocaleString('th-TH');
+                    el.innerHTML = `<strong>🕒 ${shown}</strong><br><small>Timezone: ${tz}</small>`;
+                } else {
+                    el.innerHTML = `<div class="error">❌ ${r.error}</div><div>Fallback: ${r.fallback}</div>`;
+                }
+            } catch (e) { el.innerHTML = `<div class="error">❌ ${e.message}</div>`; }
+        }
+
+        async function refreshWeather() {
+            const el = document.getElementById('weatherInfo');
+            try {
+                el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+                const w = await window.realtimeAPI.getWeather();
+                if (w.success) {
+                    el.innerHTML = `<strong>📍 ${w.location}</strong><br>🌡️ ${w.temperature}<br>☁️ ${w.description}<br>💧 ความชื้น: ${w.humidity}`;
+                } else {
+                    const f = w.fallback;
+                    el.innerHTML = `<div class="error">⚠️ ${w.error}</div><div><strong>📍 ${f.location}</strong><br>🌡️ ${f.temperature}<br>☁️ ${f.description}</div>`;
+                }
+            } catch (e) { el.innerHTML = `<div class="error">❌ ${e.message}</div>`; }
+        }
+
+        async function refreshAgents() {
+            const el = document.getElementById('agentsList');
+            try {
+                el.innerHTML = '<div class="loading">กำลังโหลด...</div>';
+                const a = await window.realtimeAPI.getMockAgents();
+                if (a.success) {
+                    const rows = (a.agents || []).map(agent => {
+                        const cls = `status-${agent.status.toLowerCase()}`;
+                        return `<div class="agent-item">
+              <div><span class="status-indicator ${cls}"></span><strong>${agent.name}</strong> (${agent.id})</div>
+              <div>${agent.status} | Ext: ${agent.extension}</div>
+            </div>`;
+                    }).join('');
+                    el.innerHTML = rows + `<div class="small" style="margin-top:8px">📊 Total: ${a.count} agents ${a.fallback ? '(Fallback data)' : '(Live from API)'}</div>`;
+                    updateChartsFromAgents(a);
+                } else {
+                    el.innerHTML = `<div class="error">❌ ${a.error}</div>`;
+                }
+            } catch (e) { el.innerHTML = `<div class="error">❌ ${e.message}</div>`; }
+        }
+
+        /************** Notifications **************/
+        function showNotification(message, options = {}) {
+            if (window.realtimeAPI?.notify) {
+                window.realtimeAPI.notify({ title: options.title || "Agent Status Changed", body: message, silent: !!options.silent });
+                return;
+            }
+            if ("Notification" in window) {
+                const show = () => new Notification(options.title || "Agent Status Changed", { body: message, tag: 'agent-status', timestamp: Date.now() });
+                if (Notification.permission === 'granted') show();
+                else if (Notification.permission !== 'denied') Notification.requestPermission().then(p => { if (p === 'granted') show(); });
+                else alert(message);
+                return;
+            }
+            alert(message);
+        }
+        async function ensureNotificationPermission() {
+            if (!("Notification" in window)) return;
+            if (Notification.permission === 'default') { try { await Notification.requestPermission(); } catch { } }
+        }
+
+        /************** Auto refresh **************/
+        let autoRefreshInterval = null;
+        function setAutoUI(running) {
+            const sBtn = document.getElementById('btnAutoStart'), xBtn = document.getElementById('btnAutoStop'), st = document.getElementById('autoStatus');
+            if (sBtn) sBtn.disabled = running; if (xBtn) xBtn.disabled = !running;
+            if (st) st.textContent = running ? 'Auto: ✅ ทำงานอยู่ (ทุก 30 วินาที)' : 'Auto: ❌ ปิดอยู่';
+        }
+        function startAutoRefresh() {
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            setAutoUI(true); refreshAgents(); refreshTime();
+            autoRefreshInterval = setInterval(() => { refreshAgents(); refreshTime(); }, appSettings.autoRefreshMs || 30000);
+            saveSettings({ autoRefresh: true });
+        }
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+            setAutoUI(false); saveSettings({ autoRefresh: false });
+        }
+
+        /************** Charts **************/
+        let statusBarChart = null, countChart = null;
+        let statusCounts = { Available: 0, Busy: 0, Break: 0, Offline: 0 };
+        const STATUS_ORDER = ['Available', 'Busy', 'Break', 'Offline'];
+        const STATUS_COLORS = { Available: '#2ecc71', Busy: '#e74c3c', Break: '#f39c12', Offline: '#95a5a6' };
+        const MAX_POINTS = 50;
+
+        function computeStatusCounts(agents) {
+            const base = { Available: 0, Busy: 0, Break: 0, Offline: 0 };
+            (agents || []).forEach(a => base[a.status] = (base[a.status] || 0) + 1);
+            statusCounts = base; return base;
+        }
+        function updateStatusBar(counts) {
+            const labels = STATUS_ORDER, data = labels.map(s => counts[s] || 0), colors = labels.map(s => STATUS_COLORS[s]);
+            const ctx = document.getElementById('statusBar').getContext('2d');
+            if (!statusBarChart) {
+                statusBarChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Agents', data, backgroundColor: colors, borderWidth: 1 }] },
+                    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, animation: { duration: 300 } }
+                });
+            } else {
+                statusBarChart.data.labels = labels; statusBarChart.data.datasets[0].data = data; statusBarChart.update();
+            }
+        }
+        function appendCountLinePoint(total, label) {
+            const ctx = document.getElementById('countLine')?.getContext('2d'); if (!ctx) return;
+            if (!countChart) {
+                countChart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: [label], datasets: [{ label: 'Total Agents', data: [total], tension: .3, fill: false }] },
+                    options: { responsive: true, plugins: { legend: { display: true } }, scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 6 } }, y: { beginAtZero: true, ticks: { precision: 0 } } }, animation: { duration: 300 } }
+                });
+            } else {
+                countChart.data.labels.push(label); countChart.data.datasets[0].data.push(total);
+                if (countChart.data.labels.length > MAX_POINTS) { countChart.data.labels.shift(); countChart.data.datasets[0].data.shift(); }
+                countChart.update();
+            }
+        }
+        function updateChartsFromAgents(a) {
+            const counts = computeStatusCounts(a.agents || []); updateStatusBar(counts);
+            const total = a.count || (a.agents ? a.agents.length : 0);
+            appendCountLinePoint(total, new Date().toLocaleTimeString('th-TH'));
+        }
+        function bumpChartFromStatusChange(_id, newStatus) {
+            if (statusCounts[newStatus] === undefined) statusCounts[newStatus] = 0;
+            statusCounts[newStatus] += 1; updateStatusBar(statusCounts);
+        }
+
+        /************** Simulator & Tray **************/
+        window.realtimeAPI.onAgentStatusChanged((d) => {
+            bumpChartFromStatusChange(d.agentId, d.newStatus);
+            document.getElementById('lastStatusChange').innerHTML = `🔄 <strong>${d.agentId}</strong> → ${d.newStatus}<br><small>⏰ ${new Date(d.timestamp).toLocaleTimeString('th-TH')}</small>`;
+            showNotification(`🔄 ${d.agentId} เปลี่ยนเป็น ${d.newStatus}`);
+            refreshAgents();
+        });
+        async function startSimulator() { const r = await window.realtimeAPI.startSimulator(); if (r.success) { document.getElementById('simulatorStatus').textContent = '🟢 Simulator ทำงานอยู่'; showNotification('🎭 Agent Status Simulator เริ่มทำงานแล้ว'); } }
+        async function stopSimulator() { const r = await window.realtimeAPI.stopSimulator(); if (r.success) { document.getElementById('simulatorStatus').textContent = '🔴 Simulator หยุดแล้ว'; showNotification('⏹️ Agent Status Simulator หยุดแล้ว'); } }
+
+        // รับคำสั่งจาก System Tray
+        if (window.realtimeAPI?.onTrayCommand) {
+            window.realtimeAPI.onTrayCommand(({ cmd }) => {
+                switch (cmd) {
+                    case 'connect-ws': connectWebSocket(); break;
+                    case 'toggle-auto': appSettings.autoRefresh ? stopAutoRefresh() : startAutoRefresh(); break;
+                    case 'sim-start': startSimulator(); break;
+                    case 'sim-stop': stopSimulator(); break;
+                    case 'toggle-theme': toggleTheme(); break;
+                }
+            });
+        }
+
+        /************** LIFECYCLE **************/
+        window.addEventListener('DOMContentLoaded', async () => {
+            // quick theme (no flash)
+            applyTheme(localStorage.getItem('theme') || 'dark');
+
+            // bind header buttons
+            document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+            document.getElementById('resetSettingsBtn')?.addEventListener('click', async () => {
+                await window.realtimeAPI.resetSettings();
+                await loadSettingsAndApply();
+                showNotification('🔧 ตั้งค่ากลับค่าเริ่มต้นแล้ว');
+            });
+
+            // clock
+            clockInterval = setInterval(updateLiveClock, 1000); updateLiveClock();
+            // notifications
+            ensureNotificationPermission();
+            // settings
+            await loadSettingsAndApply();
+
+            // first load
+            refreshTime(); refreshWeather(); refreshAgents();
+            setAutoUI(false);
+
+            console.log('✅ Dashboard ready');
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (clockInterval) clearInterval(clockInterval);
+            if (websocket) websocket.close();
+        });
+    </script>
+</body>
+
+</html>
