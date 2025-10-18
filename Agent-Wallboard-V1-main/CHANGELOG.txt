@@ -1,0 +1,20 @@
+📅 CHANGELOG
+============
+
+v1.0.0 (2025-09-24)
+------------------
+🎉 Initial Release
+
+✅ Features:
+- Agent status dashboard
+- System tray integration
+- Desktop notifications
+- CSV export functionality
+- Live clock display
+- Auto-refresh every 30 seconds
+
+🔧 Technical:
+- Built with Electron 28.1.0
+- Supports Windows 10/11
+- Installer size: ~120MB
+- Memory usage: ~80MB

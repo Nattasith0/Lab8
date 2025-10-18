@@ -1,0 +1,31 @@
+# Dependencies
+/node_modules
+
+# Build outputs (electron-builder, electron-packager)
+dist/
+out/
+build/
+
+# Distribution (installer, portable, docs)
+distribution/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System files
+.DS_Store
+Thumbs.db
+
+# VSCode settings (optional)
+.vscode/
+
+# OS files
+ehthumbs.db
+Desktop.ini
+
+# Environment / secrets
+.env
+.env.local

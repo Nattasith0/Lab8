@@ -1,0 +1,82 @@
+{
+  "name": "agent-wallboard",
+  "version": "1.0.5",
+  "description": "Real-time Agent Wallboard Desktop Application",
+  "main": "main.js",
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder --win --mac --linux",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2",
+    "node-fetch": "^2.6.7"
+  },
+  "build": {
+    "appId": "com.yourcompany.agent-wallboard",
+    "productName": "Agent Wallboard",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Nattasith0",
+        "repo": "agent-wallboard"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "app.js",
+      "assets/**/*",
+      "api-config.js",
+      "mock-data.json"
+    ],
+    "asar": true,
+    "extraResources": [
+      "mock-data.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "Agent-Wallboard-Setup-${version}.exe"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icons",
+      "category": "Office",
+      "artifactName": "Agent-Wallboard-${version}.AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Agent Wallboard"
+    }
+  }
+}
